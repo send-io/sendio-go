@@ -1,0 +1,591 @@
+package sendio
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestGetReceivedEmail(t *testing.T) {
+	setup()
+	defer teardown()
+
+	mux.HandleFunc("/emails/receiving/8136d3fb-0439-4b09-b939-b8436a3524b6", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		ret := `
+		{
+			"object": "email",
+			"id": "8136d3fb-0439-4b09-b939-b8436a3524b6",
+			"to": ["delivered@send.io"],
+			"from": "Acme <onboarding@yourdomain.com>",
+			"created_at": "2023-04-03 22:13:42.674981+00",
+			"subject": "Hello World",
+			"message_id": "<test-message-id@example.com>",
+			"html": "Congrats on sending your <strong>first email</strong>!",
+			"text": "Congrats on sending your first email!",
+			"bcc": [],
+			"cc": ["cc@example.com"],
+			"reply_to": ["reply@example.com"],
+			"received_for": ["forwarded@example.com"],
+			"headers": {
+				"X-Custom-Header": "value"
+			},
+			"raw": {
+				"download_url": "https://cdn.example.com/just-a-test-url",
+				"expires_at": "2023-04-20 16:23:29.315+00"
+			},
+			"attachments": [
+				{
+					"id": "2a0c9ce0-3112-4728-976e-47ddcd16a318",
+					"filename": "avatar.png",
+					"content_type": "image/png",
+					"content_disposition": "inline",
+					"content_id": "img001"
+				}
+			]
+		}`
+		fmt.Fprintf(w, ret)
+	})
+
+	resp, err := client.Emails.Receiving.Get("8136d3fb-0439-4b09-b939-b8436a3524b6")
+	if err != nil {
+		t.Errorf("Emails.Receiving.Get returned error: %v", err)
+	}
+	assert.Equal(t, "8136d3fb-0439-4b09-b939-b8436a3524b6", resp.Id)
+	assert.Equal(t, "email", resp.Object)
+	assert.Equal(t, "Acme <onboarding@yourdomain.com>", resp.From)
+	assert.Equal(t, "Hello World", resp.Subject)
+	assert.Equal(t, "Congrats on sending your <strong>first email</strong>!", resp.Html)
+	assert.Equal(t, "Congrats on sending your first email!", resp.Text)
+	assert.Equal(t, 1, len(resp.To))
+	assert.Equal(t, "delivered@send.io", resp.To[0])
+	assert.Equal(t, 1, len(resp.Cc))
+	assert.Equal(t, "cc@example.com", resp.Cc[0])
+	assert.Equal(t, 1, len(resp.ReplyTo))
+	assert.Equal(t, "reply@example.com", resp.ReplyTo[0])
+	assert.Equal(t, 1, len(resp.ReceivedFor))
+	assert.Equal(t, "forwarded@example.com", resp.ReceivedFor[0])
+	assert.Equal(t, 1, len(resp.Headers))
+	assert.Equal(t, "value", resp.Headers["X-Custom-Header"])
+	assert.Equal(t, "<test-message-id@example.com>", resp.MessageId)
+	assert.Equal(t, 1, len(resp.Attachments))
+	assert.Equal(t, "2a0c9ce0-3112-4728-976e-47ddcd16a318", resp.Attachments[0].Id)
+	assert.Equal(t, "avatar.png", resp.Attachments[0].Filename)
+	assert.Equal(t, "image/png", resp.Attachments[0].ContentType)
+	assert.Equal(t, "inline", resp.Attachments[0].ContentDisposition)
+	assert.Equal(t, "img001", resp.Attachments[0].ContentId)
+	assert.Equal(t, "https://cdn.example.com/just-a-test-url", resp.Raw.DownloadUrl)
+	assert.Equal(t, "2023-04-20 16:23:29.315+00", resp.Raw.ExpiresAt)
+}
+
+func TestGetReceivedEmailWithOptions(t *testing.T) {
+	setup()
+	defer teardown()
+
+	mux.HandleFunc("/emails/receiving/8136d3fb-0439-4b09-b939-b8436a3524b6", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		assert.Equal(t, "sanitized", r.URL.Query().Get("html_format"))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		ret := `
+		{
+			"object": "email",
+			"id": "8136d3fb-0439-4b09-b939-b8436a3524b6",
+			"to": ["delivered@send.io"],
+			"from": "Acme <onboarding@yourdomain.com>",
+			"created_at": "2023-04-03 22:13:42.674981+00",
+			"subject": "Hello World",
+			"html": "<p>Congrats on sending your first email!</p>",
+			"text": "Congrats on sending your first email!",
+			"bcc": [],
+			"cc": [],
+			"reply_to": [],
+			"headers": {},
+			"attachments": []
+		}`
+		fmt.Fprintf(w, ret)
+	})
+
+	htmlFormat := "sanitized"
+	resp, err := client.Emails.Receiving.GetWithOptions(context.Background(), "8136d3fb-0439-4b09-b939-b8436a3524b6", &GetReceivedEmailParams{
+		HtmlFormat: &htmlFormat,
+	})
+	if err != nil {
+		t.Errorf("Emails.Receiving.GetWithOptions returned error: %v", err)
+	}
+	assert.Equal(t, "8136d3fb-0439-4b09-b939-b8436a3524b6", resp.Id)
+	assert.Equal(t, "<p>Congrats on sending your first email!</p>", resp.Html)
+}
+
+func TestGetReceivedEmailWithNullFields(t *testing.T) {
+	setup()
+	defer teardown()
+
+	mux.HandleFunc("/emails/receiving/null-fields-id", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		ret := `
+		{
+			"object": "email",
+			"id": "null-fields-id",
+			"to": ["delivered@send.io"],
+			"from": "sender@example.com",
+			"created_at": "2023-04-03 22:13:42.674981+00",
+			"subject": "Test Subject",
+			"html": "",
+			"text": "",
+			"bcc": [],
+			"cc": [],
+			"reply_to": [],
+			"headers": {},
+			"attachments": []
+		}`
+		fmt.Fprintf(w, ret)
+	})
+
+	resp, err := client.Emails.Receiving.Get("null-fields-id")
+	if err != nil {
+		t.Errorf("Emails.Receiving.Get returned error: %v", err)
+	}
+	assert.Equal(t, "null-fields-id", resp.Id)
+	assert.Equal(t, "", resp.Html)
+	assert.Equal(t, "", resp.Text)
+	assert.Equal(t, 0, len(resp.Bcc))
+	assert.Equal(t, 0, len(resp.Cc))
+	assert.Equal(t, 0, len(resp.ReplyTo))
+	assert.Equal(t, 0, len(resp.Headers))
+	assert.Equal(t, 0, len(resp.Attachments))
+}
+
+func TestListReceivedEmails(t *testing.T) {
+	setup()
+	defer teardown()
+
+	mux.HandleFunc("/emails/receiving", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		ret := &ListReceivedEmailsResponse{
+			Object:  "list",
+			HasMore: true,
+			Data: []ListReceivedEmail{
+				{
+					Id:        "1",
+					To:        []string{"recipient@example.com"},
+					From:      "sender@example.com",
+					CreatedAt: "2024-01-01 00:00:00+00",
+					Subject:   "Test Email 1",
+					Bcc:       []string{},
+					Cc:        []string{"cc@example.com"},
+					ReplyTo:   []string{},
+					Attachments: []ReceivedAttachment{
+						{
+							Id:                 "att1",
+							Filename:           "file.pdf",
+							ContentType:        "application/pdf",
+							ContentDisposition: "attachment",
+							ContentId:          "cid1",
+						},
+					},
+				},
+				{
+					Id:          "2",
+					To:          []string{"recipient2@example.com"},
+					From:        "sender2@example.com",
+					CreatedAt:   "2024-01-02 00:00:00+00",
+					Subject:     "Test Email 2",
+					Bcc:         []string{},
+					Cc:          []string{},
+					ReplyTo:     []string{},
+					Attachments: []ReceivedAttachment{},
+				},
+			},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(ret); err != nil {
+			panic(err)
+		}
+	})
+
+	resp, err := client.Emails.Receiving.List()
+	if err != nil {
+		t.Errorf("Emails.Receiving.List returned error: %v", err)
+	}
+
+	assert.Equal(t, "list", resp.Object)
+	assert.Equal(t, true, resp.HasMore)
+	assert.Equal(t, 2, len(resp.Data))
+	assert.Equal(t, "1", resp.Data[0].Id)
+	assert.Equal(t, "sender@example.com", resp.Data[0].From)
+	assert.Equal(t, "Test Email 1", resp.Data[0].Subject)
+	assert.Equal(t, 1, len(resp.Data[0].Attachments))
+	assert.Equal(t, "att1", resp.Data[0].Attachments[0].Id)
+	assert.Equal(t, "2", resp.Data[1].Id)
+}
+
+func TestListReceivedEmailsWithParameters(t *testing.T) {
+	setup()
+	defer teardown()
+
+	mux.HandleFunc("/emails/receiving", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+
+		// Verify query parameters
+		query := r.URL.Query()
+		assert.Equal(t, "10", query.Get("limit"))
+		assert.Equal(t, "cursor123", query.Get("after"))
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		ret := &ListReceivedEmailsResponse{
+			Object:  "list",
+			HasMore: false,
+			Data: []ListReceivedEmail{
+				{
+					Id:          "1",
+					To:          []string{"recipient@example.com"},
+					From:        "sender@example.com",
+					CreatedAt:   "2024-01-01 00:00:00+00",
+					Subject:     "Test Email 1",
+					Bcc:         []string{},
+					Cc:          []string{},
+					ReplyTo:     []string{},
+					Attachments: []ReceivedAttachment{},
+				},
+			},
+		}
+
+		if err := json.NewEncoder(w).Encode(ret); err != nil {
+			panic(err)
+		}
+	})
+
+	limit := 10
+	after := "cursor123"
+	options := &ListOptions{
+		Limit: &limit,
+		After: &after,
+	}
+
+	resp, err := client.Emails.Receiving.ListWithOptions(context.Background(), options)
+	if err != nil {
+		t.Errorf("Emails.Receiving.ListWithOptions returned error: %v", err)
+	}
+
+	assert.Equal(t, "list", resp.Object)
+	assert.Equal(t, false, resp.HasMore)
+	assert.Equal(t, 1, len(resp.Data))
+}
+
+func TestListReceivedEmailsEmpty(t *testing.T) {
+	setup()
+	defer teardown()
+
+	mux.HandleFunc("/emails/receiving", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		ret := &ListReceivedEmailsResponse{
+			Object:  "list",
+			HasMore: false,
+			Data:    []ListReceivedEmail{},
+		}
+
+		if err := json.NewEncoder(w).Encode(ret); err != nil {
+			panic(err)
+		}
+	})
+
+	resp, err := client.Emails.Receiving.List()
+	if err != nil {
+		t.Errorf("Emails.Receiving.List returned error: %v", err)
+	}
+
+	assert.Equal(t, "list", resp.Object)
+	assert.Equal(t, false, resp.HasMore)
+	assert.Equal(t, 0, len(resp.Data))
+}
+
+func TestGetReceivedEmailAttachment(t *testing.T) {
+	setup()
+	defer teardown()
+
+	emailId := "4ef9a417-02e9-4d39-ad75-9611e0fcc33c"
+	attachmentId := "2a0c9ce0-3112-4728-976e-47ddcd16a318"
+
+	mux.HandleFunc(fmt.Sprintf("/emails/receiving/%s/attachments/%s", emailId, attachmentId), func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		ret := `
+		{
+			"object": "attachment",
+			"id": "2a0c9ce0-3112-4728-976e-47ddcd16a318",
+			"filename": "avatar.png",
+			"content_type": "image/png",
+			"content_disposition": "inline",
+			"content_id": "img001",
+			"download_url": "https://inbound-cdn.send.io/4ef9a417-02e9-4d39-ad75-9611e0fcc33c/attachments/2a0c9ce0-3112-4728-976e-47ddcd16a318?some-params=example&signature=sig-123",
+			"expires_at": "2025-10-17 14:29:41.521+00"
+		}`
+		fmt.Fprintf(w, ret)
+	})
+
+	resp, err := client.Emails.Receiving.GetAttachment(emailId, attachmentId)
+	if err != nil {
+		t.Errorf("Emails.Receiving.GetAttachment returned error: %v", err)
+	}
+	assert.Equal(t, "2a0c9ce0-3112-4728-976e-47ddcd16a318", resp.Id)
+	assert.Equal(t, "avatar.png", resp.Filename)
+	assert.Equal(t, "image/png", resp.ContentType)
+	assert.Equal(t, "inline", resp.ContentDisposition)
+	assert.Equal(t, "img001", resp.ContentId)
+	assert.Equal(t, "https://inbound-cdn.send.io/4ef9a417-02e9-4d39-ad75-9611e0fcc33c/attachments/2a0c9ce0-3112-4728-976e-47ddcd16a318?some-params=example&signature=sig-123", resp.DownloadUrl)
+	assert.Equal(t, "2025-10-17 14:29:41.521+00", resp.ExpiresAt)
+}
+
+func TestGetReceivedEmailAttachmentWithContext(t *testing.T) {
+	setup()
+	defer teardown()
+
+	emailId := "test-email-id"
+	attachmentId := "test-attachment-id"
+
+	mux.HandleFunc(fmt.Sprintf("/emails/receiving/%s/attachments/%s", emailId, attachmentId), func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		ret := `
+		{
+			"object": "attachment",
+			"id": "test-attachment-id",
+			"filename": "document.pdf",
+			"content_type": "application/pdf",
+			"content_disposition": "attachment",
+			"content_id": "doc001",
+			"download_url": "https://inbound-cdn.send.io/test-email-id/attachments/test-attachment-id",
+			"expires_at": "2025-10-18 12:00:00+00"
+		}`
+		fmt.Fprintf(w, ret)
+	})
+
+	ctx := context.Background()
+	resp, err := client.Emails.Receiving.GetAttachmentWithContext(ctx, emailId, attachmentId)
+	if err != nil {
+		t.Errorf("Emails.Receiving.GetAttachmentWithContext returned error: %v", err)
+	}
+	assert.Equal(t, "test-attachment-id", resp.Id)
+	assert.Equal(t, "document.pdf", resp.Filename)
+	assert.Equal(t, "application/pdf", resp.ContentType)
+	assert.Equal(t, "attachment", resp.ContentDisposition)
+	assert.Equal(t, "doc001", resp.ContentId)
+	assert.NotEmpty(t, resp.DownloadUrl)
+	assert.NotEmpty(t, resp.ExpiresAt)
+}
+
+func TestListReceivedEmailAttachments(t *testing.T) {
+	setup()
+	defer teardown()
+
+	emailId := "4ef9a417-02e9-4d39-ad75-9611e0fcc33c"
+
+	mux.HandleFunc(fmt.Sprintf("/emails/receiving/%s/attachments", emailId), func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		ret := &ListEmailAttachmentsResponse{
+			Object:  "list",
+			HasMore: false,
+			Data: []EmailAttachment{
+				{
+					Id:                 "2a0c9ce0-3112-4728-976e-47ddcd16a318",
+					Filename:           "avatar.png",
+					ContentType:        "image/png",
+					ContentDisposition: "inline",
+					ContentId:          "img001",
+					DownloadUrl:        "https://inbound-cdn.send.io/4ef9a417-02e9-4d39-ad75-9611e0fcc33c/attachments/2a0c9ce0-3112-4728-976e-47ddcd16a318?some-params=example&signature=sig-123",
+					ExpiresAt:          "2025-10-17 14:29:41.521+00",
+				},
+				{
+					Id:                 "3b1d0df1-4223-5839-a87f-58eedd17b429",
+					Filename:           "document.pdf",
+					ContentType:        "application/pdf",
+					ContentDisposition: "attachment",
+					ContentId:          "doc001",
+					DownloadUrl:        "https://inbound-cdn.send.io/4ef9a417-02e9-4d39-ad75-9611e0fcc33c/attachments/3b1d0df1-4223-5839-a87f-58eedd17b429?some-params=example&signature=sig-456",
+					ExpiresAt:          "2025-10-17 14:29:41.521+00",
+				},
+			},
+		}
+
+		if err := json.NewEncoder(w).Encode(ret); err != nil {
+			panic(err)
+		}
+	})
+
+	resp, err := client.Emails.Receiving.ListAttachments(emailId)
+	if err != nil {
+		t.Errorf("Emails.Receiving.ListAttachments returned error: %v", err)
+	}
+
+	assert.Equal(t, "list", resp.Object)
+	assert.Equal(t, false, resp.HasMore)
+	assert.Equal(t, 2, len(resp.Data))
+	assert.Equal(t, "2a0c9ce0-3112-4728-976e-47ddcd16a318", resp.Data[0].Id)
+	assert.Equal(t, "avatar.png", resp.Data[0].Filename)
+	assert.Equal(t, "image/png", resp.Data[0].ContentType)
+	assert.Equal(t, "inline", resp.Data[0].ContentDisposition)
+	assert.Equal(t, "img001", resp.Data[0].ContentId)
+	assert.NotEmpty(t, resp.Data[0].DownloadUrl)
+	assert.NotEmpty(t, resp.Data[0].ExpiresAt)
+	assert.Equal(t, "3b1d0df1-4223-5839-a87f-58eedd17b429", resp.Data[1].Id)
+}
+
+func TestListReceivedEmailAttachmentsWithParameters(t *testing.T) {
+	setup()
+	defer teardown()
+
+	emailId := "test-email-id"
+
+	mux.HandleFunc(fmt.Sprintf("/emails/receiving/%s/attachments", emailId), func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+
+		// Verify query parameters
+		query := r.URL.Query()
+		assert.Equal(t, "5", query.Get("limit"))
+		assert.Equal(t, "cursor456", query.Get("after"))
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		ret := &ListEmailAttachmentsResponse{
+			Object:  "list",
+			HasMore: true,
+			Data: []EmailAttachment{
+				{
+					Id:                 "attachment-1",
+					Filename:           "file1.jpg",
+					ContentType:        "image/jpeg",
+					ContentDisposition: "attachment",
+					ContentId:          "img1",
+					DownloadUrl:        "https://example.com/file1.jpg",
+					ExpiresAt:          "2025-10-18 12:00:00+00",
+				},
+			},
+		}
+
+		if err := json.NewEncoder(w).Encode(ret); err != nil {
+			panic(err)
+		}
+	})
+
+	limit := 5
+	after := "cursor456"
+	options := &ListOptions{
+		Limit: &limit,
+		After: &after,
+	}
+
+	resp, err := client.Emails.Receiving.ListAttachmentsWithOptions(context.Background(), emailId, options)
+	if err != nil {
+		t.Errorf("Emails.Receiving.ListAttachmentsWithOptions returned error: %v", err)
+	}
+
+	assert.Equal(t, "list", resp.Object)
+	assert.Equal(t, true, resp.HasMore)
+	assert.Equal(t, 1, len(resp.Data))
+	assert.Equal(t, "attachment-1", resp.Data[0].Id)
+}
+
+func TestListReceivedEmailAttachmentsEmpty(t *testing.T) {
+	setup()
+	defer teardown()
+
+	emailId := "email-no-attachments"
+
+	mux.HandleFunc(fmt.Sprintf("/emails/receiving/%s/attachments", emailId), func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		ret := &ListEmailAttachmentsResponse{
+			Object:  "list",
+			HasMore: false,
+			Data:    []EmailAttachment{},
+		}
+
+		if err := json.NewEncoder(w).Encode(ret); err != nil {
+			panic(err)
+		}
+	})
+
+	resp, err := client.Emails.Receiving.ListAttachments(emailId)
+	if err != nil {
+		t.Errorf("Emails.Receiving.ListAttachments returned error: %v", err)
+	}
+
+	assert.Equal(t, "list", resp.Object)
+	assert.Equal(t, false, resp.HasMore)
+	assert.Equal(t, 0, len(resp.Data))
+}
+
+func TestListReceivedEmailAttachmentsWithContext(t *testing.T) {
+	setup()
+	defer teardown()
+
+	emailId := "context-test-id"
+
+	mux.HandleFunc(fmt.Sprintf("/emails/receiving/%s/attachments", emailId), func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		ret := &ListEmailAttachmentsResponse{
+			Object:  "list",
+			HasMore: false,
+			Data: []EmailAttachment{
+				{
+					Id:                 "ctx-att-1",
+					Filename:           "context-test.txt",
+					ContentType:        "text/plain",
+					ContentDisposition: "attachment",
+					ContentId:          "txt1",
+					DownloadUrl:        "https://example.com/context-test.txt",
+					ExpiresAt:          "2025-10-18 12:00:00+00",
+				},
+			},
+		}
+
+		if err := json.NewEncoder(w).Encode(ret); err != nil {
+			panic(err)
+		}
+	})
+
+	ctx := context.Background()
+	resp, err := client.Emails.Receiving.ListAttachmentsWithContext(ctx, emailId)
+	if err != nil {
+		t.Errorf("Emails.Receiving.ListAttachmentsWithContext returned error: %v", err)
+	}
+
+	assert.Equal(t, "list", resp.Object)
+	assert.Equal(t, 1, len(resp.Data))
+	assert.Equal(t, "ctx-att-1", resp.Data[0].Id)
+	assert.Equal(t, "context-test.txt", resp.Data[0].Filename)
+}

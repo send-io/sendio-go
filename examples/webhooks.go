@@ -1,0 +1,123 @@
+package examples
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/send-io/sendio-go"
+)
+
+func webhooksExample() {
+	ctx := context.TODO()
+	apiKey := os.Getenv("SENDIO_API_KEY")
+
+	client := sendio.NewClient(apiKey)
+
+	// Create Webhook
+	createParams := &sendio.CreateWebhookRequest{
+		Endpoint: "https://webhook.example.com/handler",
+		Events:   []string{"email.sent", "email.delivered", "email.bounced"},
+	}
+
+	created, err := client.Webhooks.CreateWithContext(ctx, createParams)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Created Webhook ID: " + created.Id)
+	fmt.Println("Signing Secret: " + created.SigningSecret)
+
+	// Get Webhook
+	webhook, err := client.Webhooks.GetWithContext(ctx, created.Id)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Webhook Status: %s\n", webhook.Status)
+	fmt.Printf("Webhook Endpoint: %s\n", webhook.Endpoint)
+	fmt.Printf("Webhook Events: %v\n", webhook.Events)
+
+	// Update Webhook
+	newEndpoint := "https://new-webhook.example.com/handler"
+	newStatus := "disabled"
+	updateParams := &sendio.UpdateWebhookRequest{
+		Endpoint: &newEndpoint,
+		Events:   []string{"email.sent", "email.delivered"},
+		Status:   &newStatus,
+	}
+
+	updated, err := client.Webhooks.UpdateWithContext(ctx, created.Id, updateParams)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Updated Webhook ID: " + updated.Id)
+
+	// Rotate Webhook Signing Secret
+	rotated, err := client.Webhooks.RotateSigningSecretWithContext(ctx, created.Id)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Rotated Signing Secret: " + rotated.SigningSecret)
+
+	// List Webhooks
+	webhooks, err := client.Webhooks.ListWithContext(ctx)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("You have %d webhooks in your project\n", len(webhooks.Data))
+	for i, wh := range webhooks.Data {
+		fmt.Printf("  [%d] ID: %s, Status: %s, Endpoint: %s\n", i+1, wh.Id, wh.Status, wh.Endpoint)
+	}
+
+	// List Webhooks with Pagination
+	limit := 10
+	listOptions := &sendio.ListOptions{
+		Limit: &limit,
+	}
+	paginatedWebhooks, err := client.Webhooks.ListWithOptions(ctx, listOptions)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Fetched %d webhooks (has_more: %v)\n", len(paginatedWebhooks.Data), paginatedWebhooks.HasMore)
+
+	// List Webhook Events
+	eventLimit := 10
+	webhookEvents, err := client.Webhooks.ListEventsWithOptions(ctx, created.Id, &sendio.ListWebhookEventsOptions{
+		Limit: &eventLimit,
+	})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Fetched %d webhook events (has_more: %v)\n", len(webhookEvents.Data), webhookEvents.HasMore)
+
+	if len(webhookEvents.Data) > 0 {
+		eventId := webhookEvents.Data[0].Id
+
+		// Get Webhook Event
+		webhookEvent, err := client.Webhooks.GetEventWithContext(ctx, created.Id, eventId)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("Webhook Event: %s (%s)\n", webhookEvent.Id, webhookEvent.Status)
+
+		// Replay Webhook Event
+		replayed, err := client.Webhooks.ReplayEventWithContext(ctx, created.Id, eventId)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("Replayed Webhook Event: %s\n", replayed.Id)
+
+		// List Webhook Event Attempts
+		attempts, err := client.Webhooks.ListEventAttemptsWithContext(ctx, created.Id, eventId)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("Fetched %d delivery attempts (has_more: %v)\n", len(attempts.Data), attempts.HasMore)
+	}
+
+	// Delete Webhook
+	deleted, err := client.Webhooks.RemoveWithContext(ctx, created.Id)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Deleted Webhook ID: %s (deleted: %v)\n", deleted.Id, deleted.Deleted)
+}

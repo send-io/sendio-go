@@ -1,0 +1,117 @@
+package examples
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/send-io/sendio-go"
+)
+
+func sendEmailExample() {
+	ctx := context.TODO()
+	apiKey := os.Getenv("SENDIO_API_KEY")
+
+	client := sendio.NewClient(apiKey)
+
+	// Send params
+	params := &sendio.SendEmailRequest{
+		To:      []string{"delivered@send.io"},
+		From:    "onboarding@yourdomain.com",
+		Text:    "hello world",
+		Subject: "Hello from Golang",
+		Cc:      []string{"cc@example.com"},
+		Bcc:     []string{"ccc@example.com"},
+		ReplyTo: "to@example.com",
+	}
+
+	sent, err := client.Emails.SendWithContext(ctx, params)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Sent basic email: %s\n", sent.Id)
+
+	// Sending with IdempotencyKey
+	options := &sendio.SendEmailOptions{
+		IdempotencyKey: "unique-idempotency-key",
+	}
+
+	sent, err = client.Emails.SendWithOptions(ctx, params, options)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Sent email with idempotency key: %s\n", sent.Id)
+
+	// Get Email
+	email, err := client.Emails.GetWithContext(ctx, sent.Id)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%v\n", email)
+
+	// List emails
+	fmt.Println("\nListing recent emails:")
+	listResp, err := client.Emails.ListWithContext(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Found %d emails\n", len(listResp.Data))
+	fmt.Printf("Has more emails: %v\n", listResp.HasMore)
+
+	for i, email := range listResp.Data {
+		if i < 5 { // Show first 5 emails
+			fmt.Printf("  - ID: %s, Subject: %s, To: %v\n",
+				email.Id, email.Subject, email.To)
+		}
+	}
+
+	// List emails with pagination
+	fmt.Println("\nListing emails with limit:")
+	limit := 3
+	paginatedResp, err := client.Emails.ListWithOptions(ctx, &sendio.ListOptions{
+		Limit: &limit,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Found %d emails (limited to 3)\n", len(paginatedResp.Data))
+
+	// Example of cursor-based pagination
+	if paginatedResp.HasMore && len(paginatedResp.Data) > 0 {
+		lastEmailID := paginatedResp.Data[len(paginatedResp.Data)-1].Id
+		fmt.Printf("\nFetching next page after email ID: %s\n", lastEmailID)
+
+		afterCursor := lastEmailID
+		nextPage, err := client.Emails.ListWithOptions(ctx, &sendio.ListOptions{
+			Limit: &limit,
+			After: &afterCursor,
+		})
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Printf("Found %d more emails in next page\n", len(nextPage.Data))
+	}
+
+	// Sending email with a topic_id
+	// The topic_id field allows you to send emails only to contacts who have subscribed to that topic.
+	// - If recipient is a contact and opted-in: email is sent
+	// - If recipient is a contact and opted-out: email is NOT sent (marked as failed)
+	// - If recipient is not a contact: email is sent if topic's default_subscription is "opt_in"
+	fmt.Println("\n--- Sending with Topic ID ---")
+	topicParams := &sendio.SendEmailRequest{
+		From:    "onboarding@yourdomain.com",
+		To:      []string{"delivered@send.io"},
+		Subject: "Newsletter for subscribers",
+		Html:    "<p>This is sent only to topic subscribers</p>",
+		TopicId: "1234567890abcdef", // Replace with actual topic ID
+	}
+
+	topicResp, err := client.Emails.SendWithContext(ctx, topicParams)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Sent email with topic_id: %s\n", topicResp.Id)
+}

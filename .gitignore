@@ -1,0 +1,9 @@
+.idea/
+.vscode/
+*.test
+*.out
+coverage.*
+bin/
+dist/
+vendor/
+examples/main

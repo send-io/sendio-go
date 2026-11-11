@@ -1,0 +1,224 @@
+package examples
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/send-io/sendio-go"
+)
+
+func contactsExample() {
+
+	audienceId := "ca4e37c5-a82a-4199-a3b8-bf912a6472aa"
+
+	ctx := context.TODO()
+	apiKey := os.Getenv("SENDIO_API_KEY")
+	contactEmail := "hi@example.com"
+
+	client := sendio.NewClient(apiKey)
+
+	// Create a topic first (for demonstrating topic subscriptions later)
+	topicParams := &sendio.CreateTopicRequest{
+		Name:                "Product Updates",
+		DefaultSubscription: sendio.DefaultSubscriptionOptOut,
+		Description:         "Latest product updates and announcements",
+	}
+
+	topic, err := client.Topics.CreateWithContext(ctx, topicParams)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Created topic with ID: " + topic.Id)
+
+	// Create Contact params
+	params := &sendio.CreateContactRequest{
+		Email:        contactEmail,
+		AudienceId:   audienceId,
+		FirstName:    "Steve",
+		LastName:     "Woz",
+		Unsubscribed: true,
+	}
+
+	contact, err := client.Contacts.CreateWithContext(ctx, params)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Created contact with entry id: " + contact.Id)
+
+	// Update
+	updateParams := &sendio.UpdateContactRequest{
+		AudienceId: audienceId,
+		Id:         "88ffbe62-9bd6-4a39-9ddc-4d51053e172a",
+		FirstName:  "new Updated First Name",
+		LastName:   "new Updated Last Name",
+	}
+
+	// Set unsubscribed to false
+	updateParams.SetUnsubscribed(false)
+
+	_, err = client.Contacts.UpdateWithContext(ctx, updateParams)
+	if err != nil {
+		panic(err)
+	}
+
+	// Get by ID
+	retrievedContact, err := client.Contacts.GetWithContext(ctx, &sendio.GetContactOptions{
+		AudienceId: audienceId,
+		Id:         contact.Id,
+	})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("\nRetrieved contact by ID: %v\n", retrievedContact)
+
+	// Get by email
+	retrievedByEmail, err := client.Contacts.GetWithContext(ctx, &sendio.GetContactOptions{
+		AudienceId: audienceId,
+		Id:         contactEmail,
+	})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("\nRetrieved contact by email: %v\n", retrievedByEmail)
+
+	// List
+	contacts, err := client.Contacts.ListWithContext(ctx, &sendio.ListContactsOptions{
+		AudienceId: audienceId,
+	})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("You have %d contacts in your audience\n", len(contacts.Data))
+	for _, c := range contacts.Data {
+		fmt.Printf("%v\n", c)
+	}
+
+	// ========== Contact Topics ==========
+
+	// Retrieve contact topics by ID
+	topics, err := client.Contacts.Topics.ListWithContext(ctx, contact.Id)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("\nContact has %d topic subscriptions:\n", len(topics.Data))
+	for _, topic := range topics.Data {
+		fmt.Printf("  - %s (%s): %s\n", topic.Name, topic.Id, topic.Subscription)
+	}
+
+	// Retrieve contact topics by email
+	topicsByEmail, err := client.Contacts.Topics.ListWithContext(ctx, contactEmail)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("\nContact (by email) has %d topic subscriptions\n", len(topicsByEmail.Data))
+
+	// Update topic subscriptions by contact ID
+	updateTopicsParams := &sendio.UpdateContactTopicsRequest{
+		Id: contact.Id,
+		Topics: []sendio.TopicSubscriptionUpdate{
+			{
+				Id:           topic.Id,
+				Subscription: "opt_in",
+			},
+		},
+	}
+
+	updatedTopics, err := client.Contacts.Topics.UpdateWithContext(ctx, updateTopicsParams)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("\nUpdated topic subscriptions for contact: %s\n", updatedTopics.Id)
+
+	// Retrieve updated topics to verify
+	updatedTopicsList, err := client.Contacts.Topics.ListWithContext(ctx, contact.Id)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Contact now has %d topic subscription(s):\n", len(updatedTopicsList.Data))
+	for _, t := range updatedTopicsList.Data {
+		fmt.Printf("  - %s: %s\n", t.Name, t.Subscription)
+	}
+
+	// You can also update by email instead of ID
+	updateTopicsByEmailParams := &sendio.UpdateContactTopicsRequest{
+		Email: contactEmail,
+		Topics: []sendio.TopicSubscriptionUpdate{
+			{
+				Id:           topic.Id,
+				Subscription: "opt_out",
+			},
+		},
+	}
+
+	updatedTopicsByEmail, err := client.Contacts.Topics.UpdateWithContext(ctx, updateTopicsByEmailParams)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("\nUpdated topic subscriptions for contact (by email): %s\n", updatedTopicsByEmail.Id)
+
+	// ====================================
+
+	// Create a global contact with segments and topics (atomic operation)
+	// This demonstrates adding a contact to segments and subscribing to topics in a single request
+	segmentParams := &sendio.CreateSegmentRequest{
+		Name: "Premium Users",
+	}
+	segment, err := client.Segments.CreateWithContext(ctx, segmentParams)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("\nCreated segment with ID: " + segment.Id)
+
+	globalContactParams := &sendio.CreateContactRequest{
+		Email:     "premium@example.com",
+		FirstName: "Premium",
+		LastName:  "User",
+		Segments: []sendio.ContactSegmentRef{
+			{Id: segment.Id},
+		},
+		Topics: []sendio.TopicSubscriptionUpdate{
+			{Id: topic.Id, Subscription: "opt_in"},
+		},
+	}
+	globalContact, err := client.Contacts.CreateWithContext(ctx, globalContactParams)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Created global contact with segments and topics: %s\n", globalContact.Id)
+
+	// Clean up: remove the segment we created
+	removedSegment, err := client.Segments.RemoveWithContext(ctx, segment.Id)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Segment deleted: %v\n", removedSegment.Deleted)
+
+	// Remove by id
+	removedContact, err := client.Contacts.RemoveWithContext(ctx, &sendio.RemoveContactOptions{
+		Id: globalContact.Id,
+	})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("\nGlobal contact deleted: %v\n", removedContact.Deleted)
+
+	// ====================================
+
+	// Remove by id
+	removed, err := client.Contacts.RemoveWithContext(ctx, &sendio.RemoveContactOptions{
+		AudienceId: audienceId,
+		Id:         contact.Id,
+	})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("\nContact deleted: %v\n", removed.Deleted)
+
+	// Clean up: Remove the topic we created
+	removedTopic, err := client.Topics.RemoveWithContext(ctx, topic.Id)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Topic deleted: %v\n", removedTopic.Deleted)
+}

@@ -1,0 +1,789 @@
+package sendio
+
+import (
+	"fmt"
+	"io"
+	"net/http"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestCreateContact(t *testing.T) {
+	setup()
+	defer teardown()
+
+	audienceId := "709d076c-2bb1-4be6-94ed-3f8f32622db6"
+
+	mux.HandleFunc("/audiences/"+audienceId+"/contacts", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+
+		var ret any
+		ret = `
+		{
+			"object": "contact",
+			"id": "479e3145-dd38-476b-932c-529ceb705947"
+		}`
+
+		fmt.Fprint(w, ret)
+	})
+
+	req := &CreateContactRequest{
+		Email:      "email@example.com",
+		AudienceId: audienceId,
+	}
+	resp, err := client.Contacts.Create(req)
+	if err != nil {
+		t.Errorf("Contacts.Create returned error: %v", err)
+	}
+	assert.Equal(t, resp.Object, "contact")
+	assert.Equal(t, resp.Id, "479e3145-dd38-476b-932c-529ceb705947")
+}
+
+func TestListContacts(t *testing.T) {
+	setup()
+	defer teardown()
+
+	segmentId := "709d076c-2bb1-4be6-94ed-3f8f32622db6"
+
+	mux.HandleFunc("/segments/"+segmentId+"/contacts", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		w.WriteHeader(http.StatusOK)
+
+		ret := `
+		{
+			"object": "list",
+			"data": [
+				{
+					"id": "e169aa45-1ecf-4183-9955-b1499d5701d3",
+					"email": "steve.wozniak@gmail.com",
+					"first_name": "Steve",
+					"last_name": "Wozniak",
+					"created_at": "2023-10-06 23:47:56.678+00",
+					"unsubscribed": false
+				}
+			]
+		}`
+
+		fmt.Fprint(w, ret)
+	})
+
+	contacts, err := client.Contacts.List(&ListContactsOptions{
+		SegmentId: segmentId,
+	})
+	if err != nil {
+		t.Errorf("Contacts.List returned error: %v", err)
+	}
+
+	assert.Equal(t, len(contacts.Data), 1)
+	assert.Equal(t, contacts.Data[0].Id, "e169aa45-1ecf-4183-9955-b1499d5701d3")
+	assert.NotNil(t, contacts.Data[0].FirstName)
+	assert.Equal(t, *contacts.Data[0].FirstName, "Steve")
+	assert.NotNil(t, contacts.Data[0].LastName)
+	assert.Equal(t, *contacts.Data[0].LastName, "Wozniak")
+	assert.Equal(t, contacts.Data[0].CreatedAt, "2023-10-06 23:47:56.678+00")
+	assert.Equal(t, contacts.Data[0].Unsubscribed, false)
+}
+
+func TestListContactsByAudienceIdFallback(t *testing.T) {
+	setup()
+	defer teardown()
+
+	// AudienceId is deprecated but should still route to /audiences/{id}/contacts (not segments)
+	audienceId := "709d076c-2bb1-4be6-94ed-3f8f32622db6"
+
+	mux.HandleFunc("/audiences/"+audienceId+"/contacts", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		w.WriteHeader(http.StatusOK)
+
+		ret := `
+		{
+			"object": "list",
+			"data": [
+				{
+					"id": "e169aa45-1ecf-4183-9955-b1499d5701d3",
+					"email": "steve.wozniak@gmail.com",
+					"first_name": "Steve",
+					"last_name": "Wozniak",
+					"created_at": "2023-10-06 23:47:56.678+00",
+					"unsubscribed": false
+				}
+			]
+		}`
+
+		fmt.Fprint(w, ret)
+	})
+
+	contacts, err := client.Contacts.List(&ListContactsOptions{
+		AudienceId: audienceId,
+	})
+	if err != nil {
+		t.Errorf("Contacts.List returned error: %v", err)
+	}
+
+	assert.Equal(t, len(contacts.Data), 1)
+	assert.Equal(t, contacts.Data[0].Id, "e169aa45-1ecf-4183-9955-b1499d5701d3")
+}
+
+func TestRemoveContact(t *testing.T) {
+	setup()
+	defer teardown()
+
+	audienceId := "709d076c-2bb1-4be6-94ed-3f8f32622db6"
+	contactId := "e169aa45-1ecf-4183-9955-b1499d5701d3"
+
+	mux.HandleFunc("/audiences/"+audienceId+"/contacts/"+contactId, func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodDelete)
+		w.WriteHeader(http.StatusOK)
+
+		var ret any
+		ret = `
+		{
+			"object": "contact",
+			"id": "e169aa45-1ecf-4183-9955-b1499d5701d3",
+			"deleted": true
+		}`
+
+		fmt.Fprint(w, ret)
+	})
+
+	deleted, err := client.Contacts.Remove(&RemoveContactOptions{AudienceId: audienceId, Id: contactId})
+	if err != nil {
+		t.Errorf("Domains.Remove returned error: %v", err)
+	}
+	assert.True(t, deleted.Deleted)
+}
+
+func TestGetContact(t *testing.T) {
+	setup()
+	defer teardown()
+
+	audienceId := "709d076c-2bb1-4be6-94ed-3f8f32622db6"
+	contactId := "e169aa45-1ecf-4183-9955-b1499d5701d3"
+
+	mux.HandleFunc("/audiences/"+audienceId+"/contacts/"+contactId, func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		ret := `
+		{
+			"object": "contact",
+			"id": "e169aa45-1ecf-4183-9955-b1499d5701d3",
+			"email": "steve.wozniak@gmail.com",
+			"first_name": "Steve",
+			"last_name": "Wozniak",
+			"created_at": "2023-10-06 23:47:56.678+00",
+			"unsubscribed": false
+		}`
+
+		fmt.Fprint(w, ret)
+	})
+
+	contact, err := client.Contacts.Get(&GetContactOptions{AudienceId: audienceId, Id: contactId})
+	if err != nil {
+		t.Errorf("Contacts.Get returned error: %v", err)
+	}
+
+	assert.Equal(t, contact.Id, contactId)
+	assert.Equal(t, contact.Object, "contact")
+	assert.NotNil(t, contact.FirstName)
+	assert.Equal(t, *contact.FirstName, "Steve")
+	assert.NotNil(t, contact.LastName)
+	assert.Equal(t, *contact.LastName, "Wozniak")
+	assert.Equal(t, contact.CreatedAt, "2023-10-06 23:47:56.678+00")
+	assert.Equal(t, contact.Unsubscribed, false)
+}
+
+func TestGetContactWithNullNames(t *testing.T) {
+	setup()
+	defer teardown()
+
+	audienceId := "709d076c-2bb1-4be6-94ed-3f8f32622db6"
+	contactId := "e169aa45-1ecf-4183-9955-b1499d5701d3"
+
+	mux.HandleFunc("/audiences/"+audienceId+"/contacts/"+contactId, func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		ret := `
+		{
+			"object": "contact",
+			"id": "e169aa45-1ecf-4183-9955-b1499d5701d3",
+			"email": "steve.wozniak@gmail.com",
+			"first_name": null,
+			"last_name": null,
+			"created_at": "2023-10-06 23:47:56.678+00",
+			"unsubscribed": false
+		}`
+
+		fmt.Fprint(w, ret)
+	})
+
+	contact, err := client.Contacts.Get(&GetContactOptions{AudienceId: audienceId, Id: contactId})
+	if err != nil {
+		t.Errorf("Contacts.Get returned error: %v", err)
+	}
+
+	assert.Nil(t, contact.FirstName)
+	assert.Nil(t, contact.LastName)
+}
+
+func TestGetContactByEmail(t *testing.T) {
+	setup()
+	defer teardown()
+
+	audienceId := "709d076c-2bb1-4be6-94ed-3f8f32622db6"
+	contactEmail := "steve.wozniak@gmail.com"
+
+	mux.HandleFunc("/audiences/"+audienceId+"/contacts/"+contactEmail, func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		ret := `
+		{
+			"object": "contact",
+			"id": "e169aa45-1ecf-4183-9955-b1499d5701d3",
+			"email": "steve.wozniak@gmail.com",
+			"first_name": "Steve",
+			"last_name": "Wozniak",
+			"created_at": "2023-10-06 23:47:56.678+00",
+			"unsubscribed": false
+		}`
+
+		fmt.Fprint(w, ret)
+	})
+
+	contact, err := client.Contacts.Get(&GetContactOptions{AudienceId: audienceId, Id: contactEmail})
+	if err != nil {
+		t.Errorf("Contacts.Get returned error: %v", err)
+	}
+
+	assert.Equal(t, contact.Id, "e169aa45-1ecf-4183-9955-b1499d5701d3")
+	assert.Equal(t, contact.Object, "contact")
+	assert.NotNil(t, contact.FirstName)
+	assert.Equal(t, *contact.FirstName, "Steve")
+	assert.NotNil(t, contact.LastName)
+	assert.Equal(t, *contact.LastName, "Wozniak")
+	assert.Equal(t, contact.Email, contactEmail)
+	assert.Equal(t, contact.CreatedAt, "2023-10-06 23:47:56.678+00")
+	assert.Equal(t, contact.Unsubscribed, false)
+}
+
+func TestUpdateContactById(t *testing.T) {
+	setup()
+	defer teardown()
+
+	audienceId := "709d076c-2bb1-4be6-94ed-3f8f32622db6"
+	id := "109d077c-2bb1-4be6-84ed-ff8f32612dc2"
+
+	mux.HandleFunc("/audiences/"+audienceId+"/contacts/"+id, func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPatch)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+
+		var ret any
+		ret = `
+		{
+			"data": {
+				"id": "479e3145-dd38-476b-932c-529ceb705947"
+			},
+			"error": null
+		}`
+
+		fmt.Fprint(w, ret)
+	})
+
+	req := &UpdateContactRequest{
+		AudienceId: audienceId,
+		Id:         id,
+		FirstName:  "Updated First Name",
+	}
+	resp, err := client.Contacts.Update(req)
+	if err != nil {
+		t.Errorf("Contacts.Update returned error: %v", err)
+	}
+	assert.NotNil(t, resp.Data)
+	assert.Equal(t, resp.Data.Id, "479e3145-dd38-476b-932c-529ceb705947")
+	assert.Equal(t, resp.Error, struct{}{})
+}
+
+func TestUpdateContactUnsubscribedFalse(t *testing.T) {
+	setup()
+	defer teardown()
+
+	audienceId := "709d076c-2bb1-4be6-94ed-3f8f32622db6"
+	id := "109d077c-2bb1-4be6-84ed-ff8f32612dc2"
+
+	mux.HandleFunc("/audiences/"+audienceId+"/contacts/"+id, func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPatch)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+
+		var ret any
+		ret = `
+		{
+			"data": {
+				"id": "479e3145-dd38-476b-932c-529ceb705947"
+			},
+			"error": null
+		}`
+
+		bodyBytes, err := io.ReadAll(r.Body)
+		assert.NoError(t, err)
+		assert.Contains(t, string(bodyBytes), `"unsubscribed":false`)
+
+		fmt.Fprint(w, ret)
+	})
+
+	req := &UpdateContactRequest{
+		AudienceId: audienceId,
+		Id:         id,
+		FirstName:  "Updated First Name",
+	}
+	req.SetUnsubscribed(false)
+	_, err := client.Contacts.Update(req)
+	if err != nil {
+		t.Errorf("Contacts.Update returned error: %v", err)
+	}
+}
+
+func TestUpdateContactUnsubscribedNil(t *testing.T) {
+	setup()
+	defer teardown()
+
+	audienceId := "709d076c-2bb1-4be6-94ed-3f8f32622db6"
+	id := "109d077c-2bb1-4be6-84ed-ff8f32612dc2"
+
+	mux.HandleFunc("/audiences/"+audienceId+"/contacts/"+id, func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPatch)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+
+		var ret any
+		ret = `
+		{
+			"data": {
+				"id": "479e3145-dd38-476b-932c-529ceb705947"
+			},
+			"error": null
+		}`
+
+		bodyBytes, err := io.ReadAll(r.Body)
+		assert.NoError(t, err)
+		assert.NotContains(t, string(bodyBytes), `"unsubscribed"`)
+
+		fmt.Fprint(w, ret)
+	})
+
+	req := &UpdateContactRequest{
+		AudienceId: audienceId,
+		Id:         id,
+		FirstName:  "Updated First Name",
+	}
+	_, err := client.Contacts.Update(req)
+	if err != nil {
+		t.Errorf("Contacts.Update returned error: %v", err)
+	}
+}
+
+func TestUpdateContactByEmail(t *testing.T) {
+	setup()
+	defer teardown()
+
+	audienceId := "709d076c-2bb1-4be6-94ed-3f8f32622db6"
+	email := "hi@example.com"
+
+	mux.HandleFunc("/audiences/"+audienceId+"/contacts/"+email, func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPatch)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+
+		var ret any
+		ret = `
+		{
+			"data": {
+				"id": "479e3145-dd38-476b-932c-529ceb705947"
+			},
+			"error": null
+		}`
+
+		fmt.Fprint(w, ret)
+	})
+
+	req := &UpdateContactRequest{
+		AudienceId: audienceId,
+		Email:      email,
+		FirstName:  "Updated First Name",
+	}
+	resp, err := client.Contacts.Update(req)
+	if err != nil {
+		t.Errorf("Contacts.Update returned error: %v", err)
+	}
+	assert.NotNil(t, resp.Data)
+	assert.Equal(t, resp.Data.Id, "479e3145-dd38-476b-932c-529ceb705947")
+	assert.Equal(t, resp.Error, struct{}{})
+}
+
+func TestUpdateContactIdMissing(t *testing.T) {
+	setup()
+	defer teardown()
+
+	audienceId := "709d076c-2bb1-4be6-94ed-3f8f32622db6"
+	id := ""
+
+	params := &UpdateContactRequest{
+		AudienceId: audienceId,
+		Id:         id,
+		FirstName:  "Updated First Name",
+	}
+	resp, err := client.Contacts.Update(params)
+
+	var missingRequiredFieldsErr *MissingRequiredFieldsError
+
+	assert.Equal(t, resp, UpdateContactResponse{})
+	assert.ErrorAsf(t, err, &missingRequiredFieldsErr, "expected error to be of type %T, got %T", &missingRequiredFieldsErr, err)
+	assert.Containsf(t, err.Error(), "Missing `id` or `email` field.", "expected error containing %q, got %s", "Missing `id` or `email` field.", err)
+}
+
+func TestUpdateContactEmailMissing(t *testing.T) {
+	setup()
+	defer teardown()
+
+	audienceId := "709d076c-2bb1-4be6-94ed-3f8f32622db6"
+
+	params := &UpdateContactRequest{
+		AudienceId: audienceId,
+		Email:      "",
+		FirstName:  "Updated First Name",
+	}
+	resp, err := client.Contacts.Update(params)
+
+	var missingRequiredFieldsErr *MissingRequiredFieldsError
+
+	assert.Equal(t, resp, UpdateContactResponse{})
+	assert.ErrorAsf(t, err, &missingRequiredFieldsErr, "expected error to be of type %T, got %T", &missingRequiredFieldsErr, err)
+	assert.Containsf(t, err.Error(), "Missing `id` or `email` field.", "expected error containing %q, got %s", "Missing `id` or `email` field.", err)
+}
+
+func TestUpdateContactAudienceIdMissing(t *testing.T) {
+	setup()
+	defer teardown()
+
+	// With the new global contacts feature, AudienceId is now optional
+	// This test verifies that updating a contact without AudienceId works (global contact)
+	id := "123123123"
+
+	mux.HandleFunc("/contacts/"+id, func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPatch)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		ret := `{
+			"data": {
+				"object": "contact",
+				"id": "123123123",
+				"email": "test@example.com",
+				"first_name": "Updated First Name",
+				"last_name": "Test",
+				"created_at": "2023-04-26 20:21:26.347412+00",
+				"unsubscribed": false
+			},
+			"error": {}
+		}`
+
+		fmt.Fprint(w, ret)
+	})
+
+	params := &UpdateContactRequest{
+		// AudienceId is omitted - this is now a global contact
+		Id:        id,
+		FirstName: "Updated First Name",
+	}
+	resp, err := client.Contacts.Update(params)
+
+	assert.Nil(t, err)
+	assert.Equal(t, "123123123", resp.Data.Id)
+	assert.NotNil(t, resp.Data.FirstName)
+	assert.Equal(t, "Updated First Name", *resp.Data.FirstName)
+}
+
+// Global Contacts Tests
+
+func TestCreateGlobalContact(t *testing.T) {
+	setup()
+	defer teardown()
+
+	mux.HandleFunc("/contacts", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+
+		fmt.Fprint(w, `{
+			"object": "contact",
+			"id": "479e3145-dd38-476b-932c-529ceb705947"
+		}`)
+	})
+
+	req := &CreateContactRequest{
+		Email:     "global@example.com",
+		FirstName: "Global",
+		LastName:  "Contact",
+		Properties: map[string]any{
+			"tier":          "premium",
+			"role":          "admin",
+			"signup_source": "website",
+		},
+	}
+	resp, err := client.Contacts.Create(req)
+	if err != nil {
+		t.Errorf("Contacts.Create returned error: %v", err)
+	}
+	assert.Equal(t, "contact", resp.Object)
+	assert.Equal(t, "479e3145-dd38-476b-932c-529ceb705947", resp.Id)
+}
+
+func TestListGlobalContacts(t *testing.T) {
+	setup()
+	defer teardown()
+
+	mux.HandleFunc("/contacts", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		w.WriteHeader(http.StatusOK)
+
+		ret := `{
+			"object": "list",
+			"data": [
+				{
+					"id": "479e3145-dd38-476b-932c-529ceb705947",
+					"email": "global@example.com",
+					"first_name": "Global",
+					"last_name": "Contact",
+					"created_at": "2023-10-06 22:59:55.977+00",
+					"unsubscribed": false
+				}
+			],
+			"has_more": false
+		}`
+
+		fmt.Fprint(w, ret)
+	})
+
+	contacts, err := client.Contacts.List(&ListContactsOptions{})
+	if err != nil {
+		t.Errorf("Contacts.List returned error: %v", err)
+	}
+
+	assert.Equal(t, 1, len(contacts.Data))
+	assert.Equal(t, "list", contacts.Object)
+	assert.Equal(t, "479e3145-dd38-476b-932c-529ceb705947", contacts.Data[0].Id)
+	assert.Equal(t, "global@example.com", contacts.Data[0].Email)
+}
+
+func TestGetGlobalContact(t *testing.T) {
+	setup()
+	defer teardown()
+
+	contactId := "479e3145-dd38-476b-932c-529ceb705947"
+
+	mux.HandleFunc("/contacts/"+contactId, func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		ret := `{
+			"object": "contact",
+			"id": "479e3145-dd38-476b-932c-529ceb705947",
+			"email": "global@example.com",
+			"first_name": "Global",
+			"last_name": "Contact",
+			"created_at": "2023-10-06 22:59:55.977+00",
+			"unsubscribed": false,
+			"properties": {
+				"tier": {"value": "premium", "type": "string"}
+			}
+		}`
+
+		fmt.Fprint(w, ret)
+	})
+
+	contact, err := client.Contacts.Get(&GetContactOptions{Id: contactId})
+	if err != nil {
+		t.Errorf("Contact.Get returned error: %v", err)
+	}
+
+	assert.Equal(t, "contact", contact.Object)
+	assert.Equal(t, contactId, contact.Id)
+	assert.Equal(t, "global@example.com", contact.Email)
+	assert.NotNil(t, contact.Properties)
+	assert.Equal(t, "premium", contact.Properties["tier"].Value)
+	assert.Equal(t, "string", contact.Properties["tier"].Type)
+}
+
+func TestUpdateGlobalContact(t *testing.T) {
+	setup()
+	defer teardown()
+
+	contactId := "479e3145-dd38-476b-932c-529ceb705947"
+
+	mux.HandleFunc("/contacts/"+contactId, func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPatch)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+
+		ret := `{
+			"data": {
+				"object": "contact",
+				"id": "479e3145-dd38-476b-932c-529ceb705947",
+				"email": "updated@example.com",
+				"first_name": "Updated",
+				"last_name": "Name",
+				"created_at": "2023-04-26 20:21:26.347412+00",
+				"unsubscribed": false,
+				"properties": {
+					"tier": {"value": "enterprise", "type": "string"}
+				}
+			},
+			"error": {}
+		}`
+
+		fmt.Fprint(w, ret)
+	})
+
+	params := &UpdateContactRequest{
+		Id:        contactId,
+		Email:     "updated@example.com",
+		FirstName: "Updated",
+		LastName:  "Name",
+		Properties: map[string]any{
+			"tier": "enterprise",
+		},
+	}
+	resp, err := client.Contacts.Update(params)
+
+	if err != nil {
+		t.Errorf("Contacts.Update returned error: %v", err)
+	}
+
+	assert.Equal(t, "contact", resp.Data.Object)
+	assert.Equal(t, contactId, resp.Data.Id)
+	assert.Equal(t, "updated@example.com", resp.Data.Email)
+	assert.NotNil(t, resp.Data.Properties)
+	assert.Equal(t, "enterprise", resp.Data.Properties["tier"].Value)
+}
+
+func TestRemoveGlobalContact(t *testing.T) {
+	setup()
+	defer teardown()
+
+	contactId := "479e3145-dd38-476b-932c-529ceb705947"
+
+	mux.HandleFunc("/contacts/"+contactId, func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodDelete)
+		w.WriteHeader(http.StatusOK)
+
+		var ret any
+		ret = `{
+			"object": "contact",
+			"id": "479e3145-dd38-476b-932c-529ceb705947",
+			"deleted": true
+		}`
+
+		fmt.Fprint(w, ret)
+	})
+
+	deleted, err := client.Contacts.Remove(&RemoveContactOptions{Id: contactId})
+	if err != nil {
+		t.Errorf("Contacts.Remove returned error: %v", err)
+	}
+	assert.True(t, deleted.Deleted)
+	assert.Equal(t, contactId, deleted.Id)
+	assert.Equal(t, "contact", deleted.Object)
+}
+
+func TestCreateGlobalContactWithSegmentsAndTopics(t *testing.T) {
+	setup()
+	defer teardown()
+
+	segmentId := "seg-123abc"
+	topicId := "top-456def"
+
+	mux.HandleFunc("/contacts", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPost)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+
+		// Verify that segments and topics are in the request body
+		bodyBytes, err := io.ReadAll(r.Body)
+		assert.NoError(t, err)
+		bodyStr := string(bodyBytes)
+		assert.Contains(t, bodyStr, `"segments"`)
+		assert.Contains(t, bodyStr, segmentId)
+		assert.Contains(t, bodyStr, `"topics"`)
+		assert.Contains(t, bodyStr, topicId)
+		assert.Contains(t, bodyStr, `"opt_in"`)
+
+		fmt.Fprint(w, `{
+			"object": "contact",
+			"id": "seg-contact-001"
+		}`)
+	})
+
+	req := &CreateContactRequest{
+		Email:     "segmented@example.com",
+		FirstName: "Segmented",
+		LastName:  "Contact",
+		Segments: []ContactSegmentRef{
+			{Id: segmentId},
+		},
+		Topics: []TopicSubscriptionUpdate{
+			{Id: topicId, Subscription: "opt_in"},
+		},
+	}
+	resp, err := client.Contacts.Create(req)
+	if err != nil {
+		t.Errorf("Contacts.Create returned error: %v", err)
+	}
+	assert.Equal(t, "contact", resp.Object)
+	assert.Equal(t, "seg-contact-001", resp.Id)
+}
+
+func TestCreateContactNilParamsReturnsError(t *testing.T) {
+	setup()
+	defer teardown()
+
+	_, err := client.Contacts.Create(nil)
+	assert.Error(t, err)
+}
+
+func TestCreateContactWithAudienceIdAndSegmentsReturnsError(t *testing.T) {
+	setup()
+	defer teardown()
+
+	_, err := client.Contacts.Create(&CreateContactRequest{
+		Email:      "test@example.com",
+		AudienceId: "aud-123",
+		Segments:   []ContactSegmentRef{{Id: "seg-456"}},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "audience_id")
+	assert.Contains(t, err.Error(), "segments")
+}
+
+func TestCreateContactWithAudienceIdAndTopicsReturnsError(t *testing.T) {
+	setup()
+	defer teardown()
+
+	_, err := client.Contacts.Create(&CreateContactRequest{
+		Email:      "test@example.com",
+		AudienceId: "aud-123",
+		Topics:     []TopicSubscriptionUpdate{{Id: "top-456", Subscription: "opt_in"}},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "audience_id")
+	assert.Contains(t, err.Error(), "topics")
+}
