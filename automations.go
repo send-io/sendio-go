@@ -235,12 +235,17 @@ type AutomationRun struct {
 type AutomationTemplateCategory = string
 
 const (
-	AutomationTemplateCategoryOnboarding  AutomationTemplateCategory = "onboarding"
-	AutomationTemplateCategoryBilling     AutomationTemplateCategory = "billing"
-	AutomationTemplateCategoryEcommerce   AutomationTemplateCategory = "ecommerce"
-	AutomationTemplateCategoryEngagement  AutomationTemplateCategory = "engagement"
-	AutomationTemplateCategoryLeadCapture AutomationTemplateCategory = "lead_capture"
-	AutomationTemplateCategoryInternal    AutomationTemplateCategory = "internal"
+	AutomationTemplateCategoryOnboarding   AutomationTemplateCategory = "onboarding"
+	AutomationTemplateCategoryBilling      AutomationTemplateCategory = "billing"
+	AutomationTemplateCategoryEcommerce    AutomationTemplateCategory = "ecommerce"
+	AutomationTemplateCategoryEngagement   AutomationTemplateCategory = "engagement"
+	AutomationTemplateCategoryLeadCapture  AutomationTemplateCategory = "lead_capture"
+	AutomationTemplateCategoryAppointments AutomationTemplateCategory = "appointments"
+	AutomationTemplateCategoryEvents       AutomationTemplateCategory = "events"
+	AutomationTemplateCategoryEducation    AutomationTemplateCategory = "education"
+	AutomationTemplateCategoryAccount      AutomationTemplateCategory = "account"
+	AutomationTemplateCategoryNonprofit    AutomationTemplateCategory = "nonprofit"
+	AutomationTemplateCategoryInternal     AutomationTemplateCategory = "internal"
 )
 
 type AutomationTemplateKind = string

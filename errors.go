@@ -206,3 +206,14 @@ var (
 	ErrFailedToCreateMailboxesResetPasswordRequest = errors.New("[ERROR]: Failed to create Mailboxes.ResetPassword request")
 	ErrFailedToCreateMailboxesRemoveRequest        = errors.New("[ERROR]: Failed to create Mailboxes.Remove request")
 )
+
+// TransactionalSvc errors
+var (
+	ErrFailedToCreateTransactionalCreateRequest   = errors.New("[ERROR]: Failed to create Transactional.Create request")
+	ErrFailedToCreateTransactionalListRequest     = errors.New("[ERROR]: Failed to create Transactional.List request")
+	ErrFailedToCreateTransactionalGetRequest      = errors.New("[ERROR]: Failed to create Transactional.Get request")
+	ErrFailedToCreateTransactionalUpdateRequest   = errors.New("[ERROR]: Failed to create Transactional.Update request")
+	ErrFailedToCreateTransactionalRemoveRequest   = errors.New("[ERROR]: Failed to create Transactional.Remove request")
+	ErrFailedToCreateTransactionalSendTestRequest = errors.New("[ERROR]: Failed to create Transactional.SendTest request")
+	ErrFailedToCreateTransactionalStatsRequest    = errors.New("[ERROR]: Failed to create Transactional.Stats request")
+)

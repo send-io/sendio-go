@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	version     = "1.1.0"
+	version     = "1.2.0"
 	userAgent   = "sendio-go:" + version
 	contentType = "application/json"
 
@@ -87,15 +87,18 @@ type Client struct {
 	ContactProperties ContactPropertiesSvc
 	Broadcasts        BroadcastsSvc
 	Templates         TemplatesSvc
-	Topics            TopicsSvc
-	Webhooks          WebhooksSvc
-	Logs              LogsSvc
-	Automations       *AutomationsSvcImpl
-	Events            EventsSvc
-	OAuthGrants       OAuthGrantsSvc
-	Suppressions      *SuppressionsSvcImpl
-	Usage             UsageSvc
-	Mailboxes         MailboxesSvc
+	// Transactional manages transactional emails (saved sends of a
+	// published template, sent with SendEmailRequest.TransactionalId).
+	Transactional TransactionalSvc
+	Topics        TopicsSvc
+	Webhooks      WebhooksSvc
+	Logs          LogsSvc
+	Automations   *AutomationsSvcImpl
+	Events        EventsSvc
+	OAuthGrants   OAuthGrantsSvc
+	Suppressions  *SuppressionsSvcImpl
+	Usage         UsageSvc
+	Mailboxes     MailboxesSvc
 }
 
 // NewClient is the default client constructor. When apiKey is empty, the
@@ -150,6 +153,7 @@ func NewCustomClient(httpClient *http.Client, apiKey string) *Client {
 	c.ContactProperties = &ContactPropertiesSvcImpl{client: c}
 	c.Broadcasts = &BroadcastsSvcImpl{client: c}
 	c.Templates = &TemplatesSvcImpl{client: c}
+	c.Transactional = &TransactionalSvcImpl{client: c}
 	c.Topics = &TopicsSvcImpl{client: c}
 	c.Webhooks = &WebhooksSvcImpl{client: c}
 	c.Logs = &LogsSvcImpl{client: c}

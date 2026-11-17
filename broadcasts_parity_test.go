@@ -100,7 +100,7 @@ func TestGetBroadcastAllFields(t *testing.T) {
 	setup()
 	defer teardown()
 	serveJSON(t, "/broadcasts/b1", http.MethodGet, `{"object":"broadcast","id":"b1","name":null,"segment_id":null,"audience_id":null,
-		"version_number":3,"updated_at":"2026-10-01 10:00:00+00","failed_reason":null,"hold_reason":"bulk_cap","hold_until":"2026-10-02 00:00:00+00"}`, nil, nil)
+		"version_number":3,"updated_at":"2026-10-01T10:00:00+00:00","failed_reason":null,"hold_reason":"bulk_cap","hold_until":"2026-10-02T00:00:00+00:00"}`, nil, nil)
 	serveJSON(t, "/broadcasts/b2", http.MethodGet, `{"object":"broadcast","id":"b2","version_number":null}`, nil, nil)
 
 	b, err := client.Broadcasts.Get("b1")
@@ -110,9 +110,9 @@ func TestGetBroadcastAllFields(t *testing.T) {
 	if assert.NotNil(t, b.VersionNumber) {
 		assert.Equal(t, 3, *b.VersionNumber)
 	}
-	assert.Equal(t, "2026-10-01 10:00:00+00", b.UpdatedAt)
+	assert.Equal(t, "2026-10-01T10:00:00+00:00", b.UpdatedAt)
 	assert.Equal(t, "bulk_cap", b.HoldReason)
-	assert.Equal(t, "2026-10-02 00:00:00+00", b.HoldUntil)
+	assert.Equal(t, "2026-10-02T00:00:00+00:00", b.HoldUntil)
 
 	b2, err := client.Broadcasts.Get("b2")
 	assert.NoError(t, err)

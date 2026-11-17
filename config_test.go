@@ -12,7 +12,7 @@ func TestSendioUserAgent(t *testing.T) {
 	client := NewClient("123")
 	req, err := client.NewRequest(context.TODO(), "GET", "domains", nil)
 	assert.NoError(t, err)
-	assert.Equal(t, "sendio-go:1.1.0", req.Header.Get("User-Agent"))
+	assert.Equal(t, "sendio-go:1.2.0", req.Header.Get("User-Agent"))
 }
 
 func TestSendioBaseURLFromEnvAtNewClient(t *testing.T) {

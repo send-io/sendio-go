@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -87,7 +88,7 @@ func TestGetWebhook(t *testing.T) {
 		{
 			"object": "webhook",
 			"id": "4dd369bc-aa82-4ff3-97de-514ae3000ee0",
-			"created_at": "2023-08-22 15:28:00+00",
+			"created_at": "2023-08-22T15:28:00+00:00",
 			"status": "enabled",
 			"endpoint": "https://webhook.example.com/handler",
 			"events": ["email.sent", "email.received"],
@@ -102,7 +103,7 @@ func TestGetWebhook(t *testing.T) {
 	}
 	assert.Equal(t, "webhook", resp.Object)
 	assert.Equal(t, "4dd369bc-aa82-4ff3-97de-514ae3000ee0", resp.Id)
-	assert.Equal(t, "2023-08-22 15:28:00+00", resp.CreatedAt)
+	assert.Equal(t, "2023-08-22T15:28:00+00:00", resp.CreatedAt)
 	assert.Equal(t, "enabled", resp.Status)
 	assert.Equal(t, "https://webhook.example.com/handler", resp.Endpoint)
 	assert.Equal(t, 2, len(resp.Events))
@@ -126,7 +127,7 @@ func TestGetWebhookWithContext(t *testing.T) {
 		{
 			"object": "webhook",
 			"id": "test-webhook-id",
-			"created_at": "2024-01-01 00:00:00+00",
+			"created_at": "2024-01-01T00:00:00+00:00",
 			"status": "enabled",
 			"endpoint": "https://test.example.com/webhook",
 			"events": ["email.delivered"],
@@ -142,7 +143,7 @@ func TestGetWebhookWithContext(t *testing.T) {
 	}
 	assert.Equal(t, "webhook", resp.Object)
 	assert.Equal(t, "test-webhook-id", resp.Id)
-	assert.Equal(t, "2024-01-01 00:00:00+00", resp.CreatedAt)
+	assert.Equal(t, "2024-01-01T00:00:00+00:00", resp.CreatedAt)
 	assert.Equal(t, "enabled", resp.Status)
 	assert.Equal(t, "https://test.example.com/webhook", resp.Endpoint)
 	assert.Equal(t, 1, len(resp.Events))
@@ -232,14 +233,14 @@ func TestListWebhooks(t *testing.T) {
 			"data": [
 				{
 					"id": "7ab123cd-ef45-6789-abcd-ef0123456789",
-					"created_at": "2023-09-10 10:15:30+00",
+					"created_at": "2023-09-10T10:15:30+00:00",
 					"status": "disabled",
 					"endpoint": "https://first-webhook.example.com/handler",
 					"events": ["email.delivered", "email.bounced"]
 				},
 				{
 					"id": "4dd369bc-aa82-4ff3-97de-514ae3000ee0",
-					"created_at": "2023-08-22 15:28:00+00",
+					"created_at": "2023-08-22T15:28:00+00:00",
 					"status": "enabled",
 					"endpoint": "https://second-webhook.example.com/receive",
 					"events": ["email.received"]
@@ -286,7 +287,7 @@ func TestListWebhooksWithOptions(t *testing.T) {
 			"data": [
 				{
 					"id": "webhook-1",
-					"created_at": "2024-01-01 00:00:00+00",
+					"created_at": "2024-01-01T00:00:00+00:00",
 					"status": "enabled",
 					"endpoint": "https://test.example.com/webhook",
 					"events": ["email.sent"]
@@ -489,4 +490,35 @@ func TestRemoveWebhookWithContext(t *testing.T) {
 	assert.Equal(t, "webhook", resp.Object)
 	assert.Equal(t, "test-delete-id", resp.Id)
 	assert.Equal(t, true, resp.Deleted)
+}
+
+// SENDIO-337 and SENDIO-402: a webhook send.io disabled after 3 days of
+// failures, read by a workspace Member (no signing secret).
+func TestGetDisabledWebhookAsMember(t *testing.T) {
+	setup()
+	defer teardown()
+
+	webhookId := "4dd369bc-aa82-4ff3-97de-514ae3000ee0"
+	mux.HandleFunc(fmt.Sprintf("/webhooks/%s", webhookId), func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"object":"webhook","id":"4dd369bc-aa82-4ff3-97de-514ae3000ee0","created_at":"2026-11-01T09:00:00.123456+00:00",
+			"status":"disabled","disabled_reason":"Deliveries failed for 3 days.","failing_since":"2026-11-07T10:15:00+00:00",
+			"endpoint":"https://webhook.example.com/handler","events":["email.sent"],"signing_secret_hidden":true}`)
+	})
+
+	resp, err := client.Webhooks.Get(webhookId)
+	if err != nil {
+		t.Fatalf("Webhooks.Get returned error: %v", err)
+	}
+	assert.Equal(t, "disabled", resp.Status)
+	assert.Equal(t, "Deliveries failed for 3 days.", *resp.DisabledReason)
+	assert.True(t, resp.SigningSecretHidden)
+	assert.Equal(t, "", resp.SigningSecret)
+	since, err := time.Parse(time.RFC3339Nano, *resp.FailingSince)
+	assert.NoError(t, err)
+	assert.Equal(t, time.Date(2026, 11, 7, 10, 15, 0, 0, time.UTC), since.UTC())
+	created, err := time.Parse(time.RFC3339Nano, resp.CreatedAt)
+	assert.NoError(t, err)
+	assert.Equal(t, 123456000, created.Nanosecond())
 }

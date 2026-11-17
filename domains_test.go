@@ -24,7 +24,7 @@ func TestCreateDomain(t *testing.T) {
 		{
 			"id": "4dd369bc-aa82-4ff3-97de-514ae3000ee0",
 			"name": "example.com",
-			"createdAt": "2023-03-28 17:12:02.059593+00",
+			"createdAt": "2023-03-28T17:12:02.059593+00:00",
 			"status": "not_started",
 			"records": [
 			  {
@@ -89,7 +89,7 @@ func TestCreateDomain(t *testing.T) {
 	assert.Equal(t, resp.Id, "4dd369bc-aa82-4ff3-97de-514ae3000ee0")
 	assert.Equal(t, resp.Region, "us-east-1")
 	assert.Equal(t, resp.Status, "not_started")
-	assert.Equal(t, resp.CreatedAt, "2023-03-28 17:12:02.059593+00")
+	assert.Equal(t, resp.CreatedAt, "2023-03-28T17:12:02.059593+00:00")
 	assert.NotNil(t, resp.Records)
 	assert.Equal(t, len(resp.Records), 5)
 
@@ -126,7 +126,7 @@ func TestCreateDomainWithCapabilities(t *testing.T) {
 		fmt.Fprint(w, `{
 			"id": "4dd369bc-aa82-4ff3-97de-514ae3000ee0",
 			"name": "example.com",
-			"createdAt": "2023-03-28 17:12:02.059593+00",
+			"createdAt": "2023-03-28T17:12:02.059593+00:00",
 			"status": "not_started",
 			"region": "us-east-1",
 			"dnsProvider": "Unidentified"
@@ -168,7 +168,7 @@ func TestCreateDomainWithoutCapabilitiesOmitsKey(t *testing.T) {
 		fmt.Fprint(w, `{
 			"id": "4dd369bc-aa82-4ff3-97de-514ae3000ee0",
 			"name": "example.com",
-			"createdAt": "2023-03-28 17:12:02.059593+00",
+			"createdAt": "2023-03-28T17:12:02.059593+00:00",
 			"status": "not_started",
 			"region": "us-east-1",
 			"dnsProvider": "Unidentified"
@@ -196,7 +196,7 @@ func TestCreateDomainResponseDeserializesCapabilities(t *testing.T) {
 		fmt.Fprint(w, `{
 			"id": "4dd369bc-aa82-4ff3-97de-514ae3000ee0",
 			"name": "example.com",
-			"createdAt": "2023-03-28 17:12:02.059593+00",
+			"createdAt": "2023-03-28T17:12:02.059593+00:00",
 			"status": "not_started",
 			"region": "us-east-1",
 			"dnsProvider": "Unidentified",
@@ -250,7 +250,7 @@ func TestListDomains(t *testing.T) {
 				"id": "d91cd9bd-1176-453e-8fc1-35364d380206",
 				"name": "example.com",
 				"status": "not_started",
-				"created_at": "2023-04-26 20:21:26.347412+00",
+				"created_at": "2023-04-26T20:21:26.347412+00:00",
 				"region": "us-east-1",
 				"records": [
 					{
@@ -274,7 +274,7 @@ func TestListDomains(t *testing.T) {
 	assert.Equal(t, domains.Data[0].Id, "d91cd9bd-1176-453e-8fc1-35364d380206")
 	assert.Equal(t, domains.Data[0].Name, "example.com")
 	assert.Equal(t, domains.Data[0].Status, "not_started")
-	assert.Equal(t, domains.Data[0].CreatedAt, "2023-04-26 20:21:26.347412+00")
+	assert.Equal(t, domains.Data[0].CreatedAt, "2023-04-26T20:21:26.347412+00:00")
 	assert.Equal(t, domains.Data[0].Region, "us-east-1")
 	assert.Equal(t, domains.Data[0].Records[0].Record, RecordTypeSPF)
 }
@@ -312,7 +312,7 @@ func TestGetDomain(t *testing.T) {
 			"id": "d91cd9bd-1176-453e-8fc1-35364d380206",
 			"name": "example.com",
 			"status": "not_started",
-			"created_at": "2023-04-26 20:21:26.347412+00",
+			"created_at": "2023-04-26T20:21:26.347412+00:00",
 			"region": "us-east-1",
 			"records": [
 				{
@@ -334,7 +334,7 @@ func TestGetDomain(t *testing.T) {
 	assert.Equal(t, domain.Object, "domain")
 	assert.Equal(t, domain.Name, "example.com")
 	assert.Equal(t, domain.Status, "not_started")
-	assert.Equal(t, domain.CreatedAt, "2023-04-26 20:21:26.347412+00")
+	assert.Equal(t, domain.CreatedAt, "2023-04-26T20:21:26.347412+00:00")
 	assert.Equal(t, domain.Region, "us-east-1")
 	assert.Equal(t, domain.Records[0].Record, RecordTypeSPF)
 	assert.Equal(t, domain.Records[0].Name, "bounces")
@@ -353,7 +353,7 @@ func TestGetDomainDeserializesCapabilities(t *testing.T) {
 			"id": "d91cd9bd-1176-453e-8fc1-35364d380206",
 			"name": "example.com",
 			"status": "not_started",
-			"created_at": "2023-04-26 20:21:26.347412+00",
+			"created_at": "2023-04-26T20:21:26.347412+00:00",
 			"region": "us-east-1",
 			"capabilities": {
 				"sending": "enabled",
@@ -384,7 +384,7 @@ func TestGetDomainPartiallyVerified(t *testing.T) {
 			"id": "fd61172c-cafc-40f5-b049-b45947779a29",
 			"name": "example.com",
 			"status": "partially_verified",
-			"created_at": "2023-06-21 06:10:36.144+00",
+			"created_at": "2023-06-21T06:10:36.144+00:00",
 			"region": "us-east-1",
 			"records": [
 				{
@@ -430,7 +430,7 @@ func TestGetDomainPartiallyFailed(t *testing.T) {
 			"id": "fd61172c-cafc-40f5-b049-b45947779a30",
 			"name": "example.com",
 			"status": "partially_failed",
-			"created_at": "2023-06-21 06:10:36.144+00",
+			"created_at": "2023-06-21T06:10:36.144+00:00",
 			"region": "us-east-1",
 			"records": [
 				{
@@ -476,7 +476,7 @@ func TestCreateDomainWithTrackingSubdomain(t *testing.T) {
 		fmt.Fprint(w, `{
 			"id": "4dd369bc-aa82-4ff3-97de-514ae3000ee0",
 			"name": "example.com",
-			"createdAt": "2023-03-28 17:12:02.059593+00",
+			"createdAt": "2023-03-28T17:12:02.059593+00:00",
 			"status": "not_started",
 			"region": "us-east-1",
 			"dnsProvider": "Unidentified",
@@ -555,7 +555,7 @@ func TestGetDomainWithTrackingFields(t *testing.T) {
 			"id": "d91cd9bd-1176-453e-8fc1-35364d380206",
 			"name": "example.com",
 			"status": "not_started",
-			"created_at": "2023-04-26 20:21:26.347412+00",
+			"created_at": "2023-04-26T20:21:26.347412+00:00",
 			"region": "us-east-1",
 			"open_tracking": true,
 			"click_tracking": true,

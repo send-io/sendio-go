@@ -41,8 +41,23 @@ type SendEmailRequest struct {
 	Attachments []*Attachment     `json:"attachments,omitempty"`
 	Headers     map[string]string `json:"headers,omitempty"`
 	ScheduledAt string            `json:"scheduled_at,omitempty"`
-	Template    *EmailTemplate    `json:"template,omitempty"`
-	TopicId     string            `json:"topic_id,omitempty"`
+	// Deprecated: send a template with TransactionalId instead; still accepted for now.
+	Template *EmailTemplate `json:"template,omitempty"`
+	TopicId  string         `json:"topic_id,omitempty"`
+
+	// TransactionalId sends a transactional email ("tx_..."): it sets the
+	// sender, subject, reply-to, preview text and content (its template's
+	// published version), so leave From, Subject, ReplyTo, Html, Text and
+	// Template empty. Pass the template's variables in Variables.
+	TransactionalId string `json:"transactional_id,omitempty"`
+	// Variables are the variables of a TransactionalId send.
+	Variables map[string]any `json:"variables,omitempty"`
+
+	// TrackOpens and TrackClicks override open and click tracking for this
+	// email (sendio.Bool(false) turns it off); nil follows the domain's
+	// setting, or the transactional email's.
+	TrackOpens  *bool `json:"track_opens,omitempty"`
+	TrackClicks *bool `json:"track_clicks,omitempty"`
 
 	// ReplyToAddresses are reply-to addresses sent in reply_to after ReplyTo
 	// (if set), as an array.
@@ -56,7 +71,17 @@ func (r SendEmailRequest) MarshalJSON() ([]byte, error) {
 	body := struct {
 		plain
 		ReplyTo any `json:"reply_to,omitempty"`
+		From    any `json:"from,omitempty"`
+		Subject any `json:"subject,omitempty"`
 	}{plain: plain(r)}
+	// from and subject are always sent, as before, except on a
+	// transactional send, which leaves them to the transactional email.
+	if r.TransactionalId == "" || r.From != "" {
+		body.From = r.From
+	}
+	if r.TransactionalId == "" || r.Subject != "" {
+		body.Subject = r.Subject
+	}
 
 	switch {
 	case len(r.ReplyToAddresses) == 0 && r.ReplyTo != "":
@@ -121,6 +146,8 @@ type Email struct {
 	Cc        []string `json:"cc"`
 	ReplyTo   []string `json:"reply_to"`
 	LastEvent string   `json:"last_event"`
+	// TransactionalId is the transactional email the email was sent from ("" for other emails).
+	TransactionalId string `json:"transactional_id,omitempty"`
 }
 
 // ListEmailsResponse is the response from the List call.

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0 (2026-11-18)
+
+- New `Transactional` resource (`/transactional`): `Create` / `CreateWithOptions` (Idempotency-Key), `List` (`Search`, `TemplateId`, pagination), `Get` (with the published version's `Variables`), `Update` (`ExpectedUpdatedAt` for a 409 on a stale save), `Remove`, `SendTest` and `Stats`, each with a `...WithContext` variant. `TrackOpens` and `TrackClicks` are off by default.
+- `SendEmailRequest.TransactionalId` and `Variables` send a transactional email by id; `from` and `subject` are then left out of the body unless set. `SendEmailRequest.TrackOpens` / `TrackClicks` override tracking for one email. `Email.TransactionalId` reads it back.
+- `CreateBroadcastRequest` and `UpdateBroadcastRequest` take `TemplateId` and `TemplateVersionId` (the exact published version to copy); `UpdateBroadcastRequest.DetachTemplate` sends `template_id: null`. `Broadcasts.Create` no longer requires `From` and `Subject` when `TemplateId` is set. `Broadcast` reads the template link fields and `UnfillableVariables`.
+- Deprecated: sending a template with `SendEmailRequest.Template` (template id). Send a transactional email with `TransactionalId` instead; the old way still works for now.
+- `Mailbox` reads `CanSend` and `SendReason` (whether the address is accepted as `From` on `Emails.Send`, and why not).
+- `Webhook` and `WebhookInList` read `DisabledReason` and `FailingSince`; `Webhook` also reads `SigningSecretHidden`.
+- New automation template categories: `AutomationTemplateCategoryAppointments`, `Events`, `Education`, `Account` and `Nonprofit`.
+- User-Agent `sendio-go:1.2.0`.
+
 ## 1.1.0 (2026-11-11)
 
 First public release.

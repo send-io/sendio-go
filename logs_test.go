@@ -21,7 +21,7 @@ func TestGetLog(t *testing.T) {
 		ret := `{
 			"object": "log",
 			"id": "log_123",
-			"created_at": "2026-03-30 13:43:54.622865+00",
+			"created_at": "2026-03-30T13:43:54.622865+00:00",
 			"endpoint": "/emails",
 			"method": "POST",
 			"response_status": 200,
@@ -38,7 +38,7 @@ func TestGetLog(t *testing.T) {
 	}
 	assert.Equal(t, "log", resp.Object)
 	assert.Equal(t, "log_123", resp.Id)
-	assert.Equal(t, "2026-03-30 13:43:54.622865+00", resp.CreatedAt)
+	assert.Equal(t, "2026-03-30T13:43:54.622865+00:00", resp.CreatedAt)
 	assert.Equal(t, "/emails", resp.Endpoint)
 	assert.Equal(t, "POST", resp.Method)
 	assert.Equal(t, 200, resp.ResponseStatus)
@@ -60,7 +60,7 @@ func TestGetLogNullUserAgent(t *testing.T) {
 		ret := `{
 			"object": "log",
 			"id": "log_456",
-			"created_at": "2026-03-30 14:00:00.000000+00",
+			"created_at": "2026-03-30T14:00:00+00:00",
 			"endpoint": "/api-keys",
 			"method": "GET",
 			"response_status": 200,
@@ -92,7 +92,7 @@ func TestListLogs(t *testing.T) {
 			"data": [
 				{
 					"id": "log_111",
-					"created_at": "2026-03-30 13:43:54.622865+00",
+					"created_at": "2026-03-30T13:43:54.622865+00:00",
 					"endpoint": "/emails",
 					"method": "POST",
 					"response_status": 200,
@@ -100,7 +100,7 @@ func TestListLogs(t *testing.T) {
 				},
 				{
 					"id": "log_222",
-					"created_at": "2026-03-29 10:00:00.000000+00",
+					"created_at": "2026-03-29T10:00:00+00:00",
 					"endpoint": "/domains",
 					"method": "GET",
 					"response_status": 200,
@@ -147,7 +147,7 @@ func TestListLogsWithOptions(t *testing.T) {
 			"data": [
 				{
 					"id": "log_333",
-					"created_at": "2026-03-28 09:00:00.000000+00",
+					"created_at": "2026-03-28T09:00:00+00:00",
 					"endpoint": "/emails",
 					"method": "POST",
 					"response_status": 422,

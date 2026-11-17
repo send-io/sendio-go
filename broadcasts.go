@@ -2,6 +2,7 @@ package sendio
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -59,6 +60,15 @@ type CreateBroadcastRequest struct {
 	// rendered for each recipient with the contact as data.
 	TemplateEngine string `json:"template_engine,omitempty"`
 
+	// TemplateId makes the broadcast from a published template (id or
+	// alias): it copies the version's content, and its subject, From,
+	// preview text and reply-to where the request has none. Not with Html,
+	// Text or TemplateEngine.
+	TemplateId string `json:"template_id,omitempty"`
+	// TemplateVersionId picks the published version to copy (default: the
+	// one published now).
+	TemplateVersionId string `json:"template_version_id,omitempty"`
+
 	// Send the broadcast immediately upon creation instead of creating a draft.
 	Send bool `json:"send,omitempty"`
 
@@ -115,6 +125,31 @@ type UpdateBroadcastRequest struct {
 	// TemplateEngine is "simple" (merge tags, the default) or "handlebars",
 	// rendered for each recipient with the contact as data.
 	TemplateEngine string `json:"template_engine,omitempty"`
+
+	// TemplateId links the broadcast to a published template (id or alias)
+	// and copies its version's content. It fills subject, From, preview text
+	// and reply-to only where the broadcast has none. Sending Html, Text or
+	// TemplateEngine instead gives the broadcast its own content and
+	// detaches it from its template. Use DetachTemplate to detach it
+	// without changing the content.
+	TemplateId string `json:"template_id,omitempty"`
+	// TemplateVersionId picks the published version to copy; alone, it
+	// switches to another version of the broadcast's template.
+	TemplateVersionId string `json:"template_version_id,omitempty"`
+	// DetachTemplate sends template_id: null (the content stays).
+	DetachTemplate bool `json:"-"`
+}
+
+// MarshalJSON sends template_id: null for DetachTemplate.
+func (r UpdateBroadcastRequest) MarshalJSON() ([]byte, error) {
+	type plain UpdateBroadcastRequest
+	if !r.DetachTemplate {
+		return json.Marshal(plain(r))
+	}
+	return json.Marshal(struct {
+		plain
+		TemplateId *string `json:"template_id"`
+	}{plain: plain(r)})
 }
 
 type CreateBroadcastResponse struct {
@@ -280,6 +315,19 @@ type Broadcast struct {
 	UnsubscribeScope  string   `json:"unsubscribe_scope"`
 	Tracking          bool     `json:"tracking"`
 	TemplateEngine    string   `json:"template_engine"`
+
+	// The template the broadcast was made from (nil for its own content):
+	// the exact published version it copied (Get only).
+	TemplateId            *string `json:"template_id"`
+	TemplateVersionId     *string `json:"template_version_id"`
+	TemplateName          *string `json:"template_name"`
+	TemplateVersionNumber *int    `json:"template_version_number"`
+	TemplateVersionName   *string `json:"template_version_name"`
+	TemplateDeleted       bool    `json:"template_deleted"`
+	// UnfillableVariables (Get, for a broadcast made from a template) are
+	// the template variables with no value in a broadcast. While it is not
+	// empty, Send refuses with 422 unfillable_variables.
+	UnfillableVariables []string `json:"unfillable_variables"`
 }
 
 type BroadcastsSvc interface {
@@ -352,11 +400,13 @@ func (s *BroadcastsSvcImpl) CreateWithContext(ctx context.Context, params *Creat
 		return CreateBroadcastResponse{}, errors.New(`[ERROR]: Either SegmentId, AudienceId or SegmentIds must be provided, or Audience must be "all"`)
 	}
 
-	if params.From == "" {
+	// A broadcast made from a template takes the template's From and
+	// subject when it has them; the API says when neither has one.
+	if params.From == "" && params.TemplateId == "" {
 		return CreateBroadcastResponse{}, errors.New("[ERROR]: From cannot be empty")
 	}
 
-	if params.Subject == "" {
+	if params.Subject == "" && params.TemplateId == "" {
 		return CreateBroadcastResponse{}, errors.New("[ERROR]: Subject cannot be empty")
 	}
 

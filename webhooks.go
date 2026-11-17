@@ -86,7 +86,9 @@ type RotateWebhookSigningSecretResponse struct {
 	SigningSecret string `json:"signing_secret"`
 }
 
-// Webhook represents a webhook object
+// Webhook represents a webhook object. Timestamps are RFC 3339 strings in
+// UTC, for example "2026-11-10T14:40:35.840078+00:00"; parse them with
+// time.Parse(time.RFC3339Nano, ...).
 type Webhook struct {
 	Object        string   `json:"object"`
 	Id            string   `json:"id"`
@@ -95,6 +97,15 @@ type Webhook struct {
 	Endpoint      string   `json:"endpoint,omitempty"`
 	Events        []string `json:"events,omitempty"`
 	SigningSecret string   `json:"signing_secret,omitempty"`
+	// SigningSecretHidden is true when SigningSecret is left out because the
+	// caller is a workspace Member.
+	SigningSecretHidden bool `json:"signing_secret_hidden,omitempty"`
+	// DisabledReason says why send.io disabled the endpoint (after 3 days of
+	// failed deliveries); nil while enabled or when you disabled it.
+	DisabledReason *string `json:"disabled_reason,omitempty"`
+	// FailingSince is when the current run of failed deliveries started
+	// (RFC 3339); nil when the last delivery succeeded.
+	FailingSince *string `json:"failing_since,omitempty"`
 }
 
 // UpdateWebhookRequest represents the parameters for updating a webhook
@@ -119,11 +130,13 @@ type ListWebhooksResponse struct {
 
 // WebhookInList represents a webhook in the list response
 type WebhookInList struct {
-	Id        string   `json:"id"`
-	CreatedAt string   `json:"created_at"`
-	Status    string   `json:"status"`
-	Endpoint  string   `json:"endpoint"`
-	Events    []string `json:"events"`
+	Id             string   `json:"id"`
+	CreatedAt      string   `json:"created_at"`
+	Status         string   `json:"status"`
+	Endpoint       string   `json:"endpoint"`
+	Events         []string `json:"events"`
+	DisabledReason *string  `json:"disabled_reason,omitempty"`
+	FailingSince   *string  `json:"failing_since,omitempty"`
 }
 
 // ListWebhookEventsOptions represents the pagination options for listing webhook events.

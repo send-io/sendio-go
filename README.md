@@ -102,6 +102,36 @@ for _, e := range batch.Data {
 }
 ```
 
+## Transactional emails
+
+A transactional email (a sign-in code, a password reset, a receipt) is a saved
+send of a published template: it keeps the From, subject, reply-to and
+tracking (off by default), and its content is the template's published
+version. Create it once, then send it by id with only the recipient and the
+variables.
+
+```go
+tx, err := client.Transactional.Create(&sendio.CreateTransactionalEmailRequest{
+	Name:       "Sign-in code",
+	TemplateId: "signin-code", // a published template, by id or alias
+	From:       "Acme <security@mail.example.com>",
+	Subject:    "Your code is {{CODE}}",
+})
+if err != nil {
+	panic(err)
+}
+
+sent, err := client.Emails.Send(&sendio.SendEmailRequest{
+	TransactionalId: tx.Id,
+	To:              []string{"ada@example.com"},
+	Variables:       map[string]any{"CODE": "123456"},
+})
+```
+
+`Transactional` also has `List` (filter by `Search` or `TemplateId`), `Get`,
+`Update` (set `ExpectedUpdatedAt` to refuse a stale save with 409), `Remove`,
+`SendTest` and `Stats`.
+
 ## Retrieve an email
 
 ```go
@@ -190,7 +220,7 @@ The client also covers API keys, segments, contacts (with topics, segments, prop
 
 The base URL is accepted with or without a trailing slash, and a path prefix (for example `http://localhost:8080/v1`) is kept. Overriding it is mainly useful for tests against a mock server or a staging environment.
 
-Every request sends `User-Agent: sendio-go:1.1.0`.
+Every request sends `User-Agent: sendio-go:1.2.0`.
 
 ## Error handling
 

@@ -48,6 +48,10 @@ type Mailbox struct {
 	Complained      int     `json:"complained"`
 	LastSentAt      *string `json:"last_sent_at"`
 	Health          string  `json:"health"`
+	// CanSend says whether POST /emails accepts this address as From now
+	// (the API's own rule); SendReason says why not, in a short line.
+	CanSend    bool    `json:"can_send"`
+	SendReason *string `json:"send_reason"`
 	// Credentials is only set by Create, when IMAP/SMTP is ready. It is shown once.
 	Credentials *MailboxCredentials `json:"credentials,omitempty"`
 }
