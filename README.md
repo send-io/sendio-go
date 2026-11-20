@@ -41,7 +41,7 @@ func main() {
 	client := sendio.NewClient(os.Getenv("SENDIO_API_KEY"))
 
 	sent, err := client.Emails.Send(&sendio.SendEmailRequest{
-		From:    "Acme <onboarding@yourdomain.com>",
+		From:    "Acme <onboarding@send.io>",
 		To:      []string{"delivered@send.io"},
 		Subject: "Hello from send.io",
 		Html:    "<p>It works!</p>",
@@ -52,6 +52,8 @@ func main() {
 	fmt.Println(sent.Id)
 }
 ```
+
+This example sends from `onboarding@send.io` to the test address `delivered@send.io`, so it works on a new account before you add a domain. `onboarding@send.io` can only send to test addresses. To email real people, send from an address on a domain you verified. A free mailbox works too once Mailboxes shows it can send.
 
 `sendio.NewClient("")` falls back to the `SENDIO_API_KEY` environment variable.
 
@@ -264,6 +266,16 @@ SENDIO_API_KEY=mx_... SENDIO_BASE_URL=https://api.send.io go run ./examples/smok
 ## Documentation
 
 Full API reference: https://developer.send.io/docs/api
+
+## Releasing
+
+For maintainers. Releases go out from GitHub Actions on the public copy of this SDK, [send-io/sendio-go](https://github.com/send-io/sendio-go), not from a laptop:
+
+1. In send-io-core, bump the version in `sendio.go`, add the `CHANGELOG.md` entry and update the version shown in the console docs (a console test compares them), then merge into `develop`.
+2. Sync the public copy: replace its files with this folder at the merged commit (`git archive <sha>:sdks/go`), commit it as `sync with send-io-core <short sha>` and push `main`.
+3. Run the Tag release workflow (`.github/workflows/tag.yml`) by hand on the public repository. It reads the version from `sendio.go`, runs the tests and pushes the matching `vX.Y.Z` tag, or does nothing if the tag exists.
+
+The Go module proxy picks the tag up on the first download.
 
 ## License
 

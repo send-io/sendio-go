@@ -33,7 +33,7 @@ func withAttachments() {
 	}
 
 	pdfAttachmentFromRemotePath := &sendio.Attachment{
-		Path:        "https://send.io/static/sdk/invoice.pdf",
+		Path:        "https://example.com/invoice.pdf",
 		Filename:    "invoice2.pdf",
 		ContentType: "application/pdf",
 	}

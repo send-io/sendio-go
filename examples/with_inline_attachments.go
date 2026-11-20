@@ -20,8 +20,8 @@ func inlineAttachmentExample() {
 
 	// Create attachments objects
 	attachment := &sendio.Attachment{
-		Path:      "https://send.io/static/brand/sendio-wordmark-black.png",
-		Filename:  "sendio-wordmark-black.png",
+		Path:      "https://app.send.io/icon-512.png",
+		Filename:  "sendio-icon.png",
 		ContentId: "my-test-image",
 	}
 

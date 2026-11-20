@@ -1,0 +1,33 @@
+# Releases github.com/send-io/sendio-go. A Go module needs only a version
+# tag: the Go module proxy picks it up on the first download.
+#
+# Run it by hand (Actions, Tag release, Run workflow) after the release commit
+# is on main. It reads the version from the source, runs the tests and pushes
+# the matching vX.Y.Z tag, or does nothing if that tag already exists.
+
+name: Tag release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the tag
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the existing tags
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test ./...
+      - name: Push the version tag if it does not exist
+        run: |
+          set -eu
+          tag="v$(grep -oP '^\s*version\s*=\s*"\K[^"]+' sendio.go)"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then echo "$tag already exists, nothing to do"; exit 0; fi
+          git tag "$tag"
+          git push origin "$tag"
+          echo "pushed $tag"
